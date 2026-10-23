@@ -1,0 +1,309 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Inventario RS - Almacén General</title>
+    <!-- Tailwind CSS CDN -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- FontAwesome Icons -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <!-- Google Fonts -->
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    
+    <!-- Configuración Tailwind -->
+    <script>
+        tailwind.config = {
+            darkMode: 'class',
+            theme: {
+                extend: {
+                    colors: {
+                        brand: {
+                            50: '#f0f7ff',
+                            100: '#e0effe',
+                            500: '#0284c7',
+                            600: '#0369a1',
+                            700: '#075985',
+                            800: '#0c4a6e',
+                            900: '#0a3751',
+                        }
+                    },
+                    fontFamily: {
+                        sans: ['Inter', 'sans-serif'],
+                    }
+                }
+            }
+        }
+    </script>
+    <style>
+        ::-webkit-scrollbar { width: 6px; height: 6px; }
+        ::-webkit-scrollbar-track { background: #f1f5f9; }
+        ::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 4px; }
+        ::-webkit-scrollbar-thumb:hover { background: #94a3b8; }
+    </style>
+
+    <!-- FIREBASE SDK MODULAR -->
+    <script type="module">
+        import { initializeApp } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-app.js";
+        import { 
+            getFirestore, collection, onSnapshot, doc, setDoc, deleteDoc, addDoc, serverTimestamp 
+        } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore.js";
+
+        // Credenciales extraídas de tu proyecto inventario-rs
+        const firebaseConfig = {
+            apiKey: "AIzaSyBkLcazj34IbSkygmFz9yYVgT48nBMN_MM",
+            authDomain: "inventario-rs.firebaseapp.com",
+            projectId: "inventario-rs",
+            storageBucket: "inventario-rs.firebasestorage.app",
+            messagingSenderId: "411948335560",
+            appId: "1:411948335560:web:a4b51ae6f3fc6606d940fd"
+        };
+
+        // Inicialización
+        const app = initializeApp(firebaseConfig);
+        const db = getFirestore(app);
+
+        // Exportar referencias globales para el script tradicional
+        window.db = db;
+        window.fsCollection = collection;
+        window.fsOnSnapshot = onSnapshot;
+        window.fsDoc = doc;
+        window.fsSetDoc = setDoc;
+        window.fsDeleteDoc = deleteDoc;
+        window.fsAddDoc = addDoc;
+        window.fsServerTimestamp = serverTimestamp;
+    </script>
+</head>
+<body class="bg-slate-100 text-slate-800 font-sans antialiased min-h-screen flex flex-col">
+
+    <!-- HEADER -->
+    <header class="bg-slate-900 text-white shadow-lg sticky top-0 z-30">
+        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+            <div class="flex items-center justify-between h-16">
+                <!-- Brand Info -->
+                <div class="flex items-center space-x-3">
+                    <div class="bg-brand-600 text-white p-2 rounded-lg font-bold text-xl flex items-center justify-center w-10 h-10 shadow-md">
+                        RS
+                    </div>
+                    <div>
+                        <h1 class="text-lg font-bold tracking-wide leading-tight">Inventario RS</h1>
+                        <p class="text-xs text-slate-400">Control de Almacén Multi-Categoría y Tallas</p>
+                    </div>
+                </div>
+
+                <!-- Indicador de Firebase + Botones -->
+                <div class="flex items-center space-x-2 sm:space-x-3">
+                    <div class="hidden sm:flex items-center space-x-1.5 bg-slate-800 px-3 py-1.5 rounded-full text-xs text-emerald-400 border border-slate-700 mr-2">
+                        <span class="w-2 h-2 rounded-full bg-emerald-500 animate-pulse"></span>
+                        <span>Firebase En Vivo</span>
+                    </div>
+
+                    <button onclick="openNewProductModal()" class="bg-emerald-600 hover:bg-emerald-700 text-white px-3 py-2 rounded-lg text-sm font-medium transition flex items-center space-x-1.5 shadow-sm">
+                        <i class="fa-solid fa-plus"></i>
+                        <span class="hidden sm:inline">Nuevo Artículo</span>
+                    </button>
+                    <button onclick="openMovementModal('VENTA')" class="bg-rose-600 hover:bg-rose-700 text-white px-3 py-2 rounded-lg text-sm font-medium transition flex items-center space-x-1.5 shadow-sm">
+                        <i class="fa-solid fa-cart-shopping"></i>
+                        <span>Registrar Venta</span>
+                    </button>
+                    <button onclick="openMovementModal('ENTRADA')" class="bg-brand-600 hover:bg-brand-700 text-white px-3 py-2 rounded-lg text-sm font-medium transition flex items-center space-x-1.5 shadow-sm">
+                        <i class="fa-solid fa-boxes-packing"></i>
+                        <span class="hidden md:inline">Entrada Stock</span>
+                    </button>
+                </div>
+            </div>
+        </div>
+    </header>
+
+    <!-- MAIN CONTAINER -->
+    <main class="flex-grow max-w-7xl w-full mx-auto px-4 sm:px-6 lg:px-8 py-6 space-y-6">
+
+        <!-- DASHBOARD CARDS -->
+        <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+            <div class="bg-white rounded-xl shadow-sm p-5 border border-slate-200 flex items-center justify-between">
+                <div>
+                    <p class="text-xs font-semibold uppercase tracking-wider text-slate-500">Artículos Registrados</p>
+                    <h3 id="stat-total-models" class="text-2xl font-bold text-slate-800 mt-1">0</h3>
+                </div>
+                <div class="p-3 bg-blue-50 text-brand-600 rounded-xl">
+                    <i class="fa-solid fa-boxes-stacked text-xl"></i>
+                </div>
+            </div>
+
+            <div class="bg-white rounded-xl shadow-sm p-5 border border-slate-200 flex items-center justify-between">
+                <div>
+                    <p class="text-xs font-semibold uppercase tracking-wider text-slate-500">Total Unidades en Stock</p>
+                    <h3 id="stat-total-units" class="text-2xl font-bold text-slate-800 mt-1">0</h3>
+                </div>
+                <div class="p-3 bg-emerald-50 text-emerald-600 rounded-xl">
+                    <i class="fa-solid fa-cubes text-xl"></i>
+                </div>
+            </div>
+
+            <div class="bg-white rounded-xl shadow-sm p-5 border border-slate-200 flex items-center justify-between">
+                <div>
+                    <p class="text-xs font-semibold uppercase tracking-wider text-slate-500">Tallas Stock Bajo (&le; 2)</p>
+                    <h3 id="stat-low-stock" class="text-2xl font-bold text-amber-600 mt-1">0</h3>
+                </div>
+                <div class="p-3 bg-amber-50 text-amber-600 rounded-xl">
+                    <i class="fa-solid fa-triangle-exclamation text-xl"></i>
+                </div>
+            </div>
+
+            <div class="bg-white rounded-xl shadow-sm p-5 border border-slate-200 flex items-center justify-between">
+                <div>
+                    <p class="text-xs font-semibold uppercase tracking-wider text-slate-500">Tallas Agotadas</p>
+                    <h3 id="stat-out-of-stock" class="text-2xl font-bold text-rose-600 mt-1">0</h3>
+                </div>
+                <div class="p-3 bg-rose-50 text-rose-600 rounded-xl">
+                    <i class="fa-solid fa-circle-xmark text-xl"></i>
+                </div>
+            </div>
+        </div>
+
+        <!-- MAIN CONTENT TAB CONTAINER -->
+        <div class="bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden">
+            <div class="border-b border-slate-200 bg-slate-50/50 px-4 pt-3 flex flex-wrap gap-2 justify-between items-center">
+                <nav class="flex space-x-2" aria-label="Tabs">
+                    <button id="tab-inventory-btn" onclick="switchTab('inventory')" class="px-4 py-2.5 text-sm font-semibold rounded-t-lg border-b-2 border-brand-600 text-brand-600 bg-white transition flex items-center space-x-2">
+                        <i class="fa-solid fa-layer-group"></i>
+                        <span>Inventario por Artículo</span>
+                    </button>
+                    <button id="tab-history-btn" onclick="switchTab('history')" class="px-4 py-2.5 text-sm font-semibold rounded-t-lg border-b-2 border-transparent text-slate-500 hover:text-slate-700 hover:bg-slate-100 transition flex items-center space-x-2">
+                        <i class="fa-solid fa-clock-rotate-left"></i>
+                        <span>Historial de Movimientos</span>
+                    </button>
+                </nav>
+            </div>
+
+            <!-- TAB 1: INVENTARIO POR MODELO -->
+            <div id="tab-inventory" class="p-4 sm:p-6 space-y-4">
+                
+                <!-- Filters -->
+                <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
+                    <div class="lg:col-span-1 relative">
+                        <i class="fa-solid fa-magnifying-glass absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 text-sm"></i>
+                        <input type="text" id="filter-search" oninput="applyFilters()" placeholder="Buscar equipo, modelo o código..." class="w-full pl-9 pr-3 py-2 text-sm border border-slate-300 rounded-lg focus:ring-2 focus:ring-brand-500 outline-none">
+                    </div>
+
+                    <div>
+                        <select id="filter-category" onchange="applyFilters()" class="w-full px-3 py-2 text-sm border border-slate-300 rounded-lg focus:ring-2 focus:ring-brand-500 outline-none">
+                            <option value="">Todas las Categorías</option>
+                            <option value="Camiseta LVBP">Camisetas LVBP</option>
+                            <option value="Gorra">Gorras</option>
+                            <option value="Suéter / Hoodie">Suéteres / Hoodies</option>
+                            <option value="Termo / Vasos">Termos / Vasos</option>
+                            <option value="Chaqueta">Chaquetas</option>
+                            <option value="Accesorio / Otro">Accesorios / Otros</option>
+                        </select>
+                    </div>
+
+                    <div>
+                        <select id="filter-team" onchange="applyFilters()" class="w-full px-3 py-2 text-sm border border-slate-300 rounded-lg focus:ring-2 focus:ring-brand-500 outline-none">
+                            <option value="">Todos los Equipos / Marcas</option>
+                            <option value="Leones del Caracas">Leones del Caracas</option>
+                            <option value="Navegantes del Magallanes">Navegantes del Magallanes</option>
+                            <option value="Tiburones de La Guaira">Tiburones de La Guaira</option>
+                            <option value="Cardenales de Lara">Cardenales de Lara</option>
+                            <option value="Águilas del Zulia">Águilas del Zulia</option>
+                            <option value="Tigres de Aragua">Tigres de Aragua</option>
+                            <option value="Caribes de Anzoátegui">Caribes de Anzoátegui</option>
+                            <option value="Bravos de Margarita">Bravos de Margarita</option>
+                            <option value="Otro">General / Neutro / Otro</option>
+                        </select>
+                    </div>
+
+                    <div>
+                        <select id="filter-gender" onchange="applyFilters()" class="w-full px-3 py-2 text-sm border border-slate-300 rounded-lg focus:ring-2 focus:ring-brand-500 outline-none">
+                            <option value="">Todos los Géneros / Tallas</option>
+                            <option value="Caballero">Caballero</option>
+                            <option value="Dama">Dama</option>
+                            <option value="Gorras (Tallas Cierre)">Gorra por Tallas</option>
+                            <option value="Ajustable / Talla Única">Ajustable / Talla Única</option>
+                        </select>
+                    </div>
+                </div>
+
+                <!-- Table Inventory -->
+                <div class="overflow-x-auto rounded-lg border border-slate-200 shadow-sm">
+                    <table class="w-full text-left text-sm text-slate-600">
+                        <thead class="bg-slate-100 text-xs uppercase font-semibold text-slate-700 tracking-wider">
+                            <tr>
+                                <th class="py-3.5 px-4 font-mono">Código de Fábrica / SKU</th>
+                                <th class="py-3.5 px-4">Equipo / Marca</th>
+                                <th class="py-3.5 px-4">Categoría y Modelo</th>
+                                <th class="py-3.5 px-4">Tipo / Talla</th>
+                                <th class="py-3.5 px-4">Tallas y Cantidades (Stock)</th>
+                                <th class="py-3.5 px-4 text-center">Total Unids.</th>
+                                <th class="py-3.5 px-4 text-center">Acciones</th>
+                            </tr>
+                        </thead>
+                        <tbody id="inventory-table-body" class="divide-y divide-slate-200 bg-white">
+                            <!-- JS Rows Dynamic -->
+                        </tbody>
+                    </table>
+                    <div id="no-results" class="hidden p-8 text-center text-slate-500">
+                        <i class="fa-solid fa-box-open text-4xl mb-2 text-slate-300"></i>
+                        <p class="text-base font-medium">No hay mercancía agregada todavía.</p>
+                        <p class="text-xs text-slate-400 mt-1">Haga clic en "+ Nuevo Artículo" para comenzar a ingresar su stock en Firebase.</p>
+                    </div>
+                </div>
+
+            </div>
+
+            <!-- TAB 2: HISTORIAL -->
+            <div id="tab-history" class="p-4 sm:p-6 space-y-4 hidden">
+                <div class="flex justify-between items-center mb-2">
+                    <h2 class="text-base font-bold text-slate-800">Registro Reciente de Ventas y Entradas</h2>
+                </div>
+                <div class="overflow-x-auto rounded-lg border border-slate-200 shadow-sm">
+                    <table class="w-full text-left text-sm text-slate-600">
+                        <thead class="bg-slate-100 text-xs uppercase font-semibold text-slate-700 tracking-wider">
+                            <tr>
+                                <th class="py-3.5 px-4">Fecha y Hora</th>
+                                <th class="py-3.5 px-4">Tipo</th>
+                                <th class="py-3.5 px-4">Equipo / Marca</th>
+                                <th class="py-3.5 px-4">Modelo</th>
+                                <th class="py-3.5 px-4">Talla / Variante</th>
+                                <th class="py-3.5 px-4 text-center">Cantidad</th>
+                                <th class="py-3.5 px-4">Nota / Referencia</th>
+                            </tr>
+                        </thead>
+                        <tbody id="history-table-body" class="divide-y divide-slate-200 bg-white">
+                            <!-- JS Rows Dynamic -->
+                        </tbody>
+                    </table>
+                    <div id="no-history" class="hidden p-8 text-center text-slate-500">
+                        <i class="fa-solid fa-clock text-4xl mb-2 text-slate-300"></i>
+                        <p class="text-base font-medium">Aún no hay movimientos registrados en la nube.</p>
+                    </div>
+                </div>
+            </div>
+
+        </div>
+
+    </main>
+
+    <!-- FOOTER -->
+    <footer class="bg-slate-900 text-slate-400 text-xs py-4 mt-auto border-t border-slate-800">
+        <div class="max-w-7xl mx-auto px-4 text-center flex flex-col sm:flex-row justify-between items-center gap-2">
+            <p>&copy; Inventario RS - Control de Almacén de Mercancías</p>
+            <p class="text-slate-400">Sincronizado con Firebase Cloud</p>
+        </div>
+    </footer>
+
+    <!-- MODAL NUEVO PRODUCTO -->
+    <div id="modal-new-product" class="fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-50 flex items-center justify-center p-4 hidden">
+        <div class="bg-white rounded-xl shadow-2xl max-w-xl w-full overflow-hidden max-h-[90vh] flex flex-col">
+            <div class="px-6 py-4 bg-emerald-700 text-white flex justify-between items-center">
+                <h3 class="font-bold text-lg flex items-center space-x-2">
+                    <i class="fa-solid fa-square-plus"></i>
+                    <span>Agregar Nueva Mercancía o Artículo</span>
+                </h3>
+                <button onclick="closeModal('modal-new-product')" class="text-white/80 hover:text-white text-xl">
+                    <i class="fa-solid fa-xmark"></i>
+                </button>
+            </div>
+            
+            <form id="form-new-product" onsubmit="handleNewProductSubmit(event)" class="p-6 space-y-4 overflow-y-auto">
+                <div class="grid grid-cols-2 gap-
