@@ -4,123 +4,295 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Inventario RS - Almacén General</title>
-    <!-- Tailwind CSS -->
+    <!-- Tailwind CSS CDN -->
     <script src="https://cdn.tailwindcss.com"></script>
-    <!-- Firebase SDKs -->
+    <!-- FontAwesome Icons -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <!-- Google Fonts -->
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <script>
+        tailwind.config = {
+            darkMode: 'class',
+            theme: {
+                extend: {
+                    colors: {
+                        brand: {
+                            50: '#f0f7ff',
+                            100: '#e0effe',
+                            500: '#0284c7',
+                            600: '#0369a1',
+                            700: '#075985',
+                            800: '#0c4a6e',
+                            900: '#0a3751',
+                        }
+                    },
+                    fontFamily: {
+                        sans: ['Inter', 'sans-serif'],
+                    }
+                }
+            }
+        }
+    </script>
+    <style>
+        ::-webkit-scrollbar { width: 6px; height: 6px; }
+        ::-webkit-scrollbar-track { background: #f1f5f9; }
+        ::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 4px; }
+        ::-webkit-scrollbar-thumb:hover { background: #94a3b8; }
+    </style>
+
+    <!-- FIREBASE SDK MODULAR CON TUS CREDENCIALES EXACTAS -->
     <script type="module">
         import { initializeApp } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-app.js";
-        import { getFirestore, collection, addDoc, getDocs, deleteDoc, doc, updateDoc, onSnapshot } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore.js";
+        import { 
+            getFirestore, 
+            collection, 
+            onSnapshot, 
+            doc, 
+            setDoc, 
+            deleteDoc, 
+            addDoc, 
+            serverTimestamp,
+            writeBatch
+        } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore.js";
 
-        // Configuración temporal abierta para evitar bloqueos
         const firebaseConfig = {
-            apiKey: "AIzaSyD-Placeholder-Key",
+            apiKey: "AIzaSyBkLcazj34IbSkygmFz9yYVgT48nBMN_MM",
             authDomain: "inventario-rs.firebaseapp.com",
             projectId: "inventario-rs",
-            storageBucket: "inventario-rs.appspot.com",
-            messagingSenderId: "123456789",
-            appId: "1:123456789:web:abcdef"
+            storageBucket: "inventario-rs.firebasestorage.app",
+            messagingSenderId: "411948335560",
+            appId: "1:411948335560:web:a4b51ae6f3fc6606d940fd"
         };
 
-        // Nota: Asegúrate de que tus credenciales reales estén aquí si usas una config específica, 
-        // o usa Firestore directamente si ya está inicializado en tu script principal.
+        const app = initializeApp(firebaseConfig);
+        const db = getFirestore(app);
+
+        window.db = db;
+        window.fsCollection = collection;
+        window.fsOnSnapshot = onSnapshot;
+        window.fsDoc = doc;
+        window.fsSetDoc = setDoc;
+        window.fsDeleteDoc = deleteDoc;
+        window.fsAddDoc = addDoc;
+        window.fsServerTimestamp = serverTimestamp;
+        window.fsWriteBatch = writeBatch;
     </script>
 </head>
-<body class="bg-slate-100 text-slate-800 font-sans min-h-screen flex flex-col">
+<body class="bg-slate-100 text-slate-800 font-sans antialiased min-h-screen flex flex-col">
 
     <!-- HEADER -->
     <header class="bg-slate-900 text-white shadow-lg sticky top-0 z-30">
-        <div class="max-w-7xl mx-auto px-4 py-3 flex justify-between items-center">
-            <div class="flex items-center space-x-3">
-                <span class="bg-blue-600 text-white font-bold p-2 rounded-lg">RS</span>
-                <div>
-                    <h1 class="text-lg font-bold">Inventario RS</h1>
-                    <p class="text-xs text-slate-400">Control de Almacén Multi-Categoría y Tallas</p>
+        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+            <div class="flex items-center justify-between h-16">
+                <!-- Brand Info -->
+                <div class="flex items-center space-x-3">
+                    <div class="bg-gradient-to-tr from-brand-600 to-brand-500 p-2 rounded-xl text-white shadow-md flex items-center justify-center font-bold text-lg w-10 h-10">
+                        RS
+                    </div>
+                    <div>
+                        <h1 class="font-bold text-base leading-tight tracking-wide">Inventario RS</h1>
+                        <p class="text-xs text-slate-400 font-medium">Control de Almacén Multi-Categoría y Tallas</p>
+                    </div>
                 </div>
-            </div>
-            <div class="flex items-center space-x-4">
-                <span id="firebase-status" class="bg-emerald-500/20 text-emerald-400 text-xs px-2.5 py-1 rounded-full font-medium flex items-center">
-                    <span class="w-2 h-2 bg-emerald-400 rounded-full mr-1.5 animate-pulse"></span> Firebase En Vivo
-                </span>
-                <button onclick="abrirModal()" class="bg-emerald-600 hover:bg-emerald-700 text-white px-4 py-2 rounded-lg text-sm font-semibold shadow transition flex items-center">
-                    + Nuevo Artículo
-                </button>
+
+                <!-- Estado de Firebase e Indicadores -->
+                <div class="flex items-center space-x-3">
+                    <span id="firebase-status" class="hidden sm:inline-flex items-center px-2.5 py-1 rounded-full text-xs font-medium bg-emerald-500/10 text-emerald-400 border border-emerald-500/20">
+                        <span class="w-2 h-2 mr-1.5 bg-emerald-500 rounded-full animate-pulse"></span> Firebase En Vivo
+                    </span>
+                    <button onclick="abrirModalNuevo()" class="bg-brand-600 hover:bg-brand-500 text-white px-4 py-2 rounded-xl text-sm font-medium shadow-sm transition-all flex items-center space-x-2">
+                        <i class="fa-solid fa-plus"></i>
+                        <span>Nuevo Artículo</span>
+                    </button>
+                </div>
             </div>
         </div>
     </header>
 
     <!-- MAIN CONTAINER -->
-    <main class="flex-grow max-w-7xl w-full mx-auto px-4 py-6 space-y-6">
+    <main class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6 flex-grow w-full space-y-6">
+        
         <!-- ESTADÍSTICAS -->
-        <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
-            <div class="bg-white p-4 rounded-xl shadow-sm border border-slate-200">
-                <p class="text-xs font-semibold text-slate-500 uppercase">Artículos Registrados</p>
-                <h3 id="total-articulos" class="text-2xl font-bold text-slate-900 mt-1">0</h3>
+        <div class="grid grid-cols-1 sm:grid-cols-3 gap-4">
+            <div class="bg-white p-5 rounded-2xl shadow-sm border border-slate-200/80 flex items-center justify-between">
+                <div>
+                    <p class="text-xs font-semibold text-slate-400 uppercase tracking-wider">Artículos Registrados</p>
+                    <h3 id="stat-total-articulos" class="text-3xl font-bold text-slate-900 mt-1">0</h3>
+                </div>
+                <div class="w-12 h-12 rounded-xl bg-brand-50 text-brand-600 flex items-center justify-center text-xl">
+                    <i class="fa-solid fa-boxes-stacked"></i>
+                </div>
             </div>
-            <div class="bg-white p-4 rounded-xl shadow-sm border border-slate-200">
-                <p class="text-xs font-semibold text-slate-500 uppercase">Total Unidades en Stock</p>
-                <h3 id="total-unidades" class="text-2xl font-bold text-slate-900 mt-1">0</h3>
+
+            <div class="bg-white p-5 rounded-2xl shadow-sm border border-slate-200/80 flex items-center justify-between">
+                <div>
+                    <p class="text-xs font-semibold text-slate-400 uppercase tracking-wider">Total Unidades en Stock</p>
+                    <h3 id="stat-total-unidades" class="text-3xl font-bold text-slate-900 mt-1">0</h3>
+                </div>
+                <div class="w-12 h-12 rounded-xl bg-emerald-50 text-emerald-600 flex items-center justify-center text-xl">
+                    <i class="fa-solid fa-layer-group"></i>
+                </div>
             </div>
-            <div class="bg-white p-4 rounded-xl shadow-sm border border-slate-200">
-                <p class="text-xs font-semibold text-slate-500 uppercase">Tallas Stock Bajo (≤ 2)</p>
-                <h3 id="total-stock-bajo" class="text-2xl font-bold text-amber-600 mt-1">0</h3>
+
+            <div class="bg-white p-5 rounded-2xl shadow-sm border border-slate-200/80 flex items-center justify-between">
+                <div>
+                    <p class="text-xs font-semibold text-slate-400 uppercase tracking-wider">Tallas Stock Bajo (≤ 2)</p>
+                    <h3 id="stat-stock-bajo" class="text-3xl font-bold text-amber-600 mt-1">0</h3>
+                </div>
+                <div class="w-12 h-12 rounded-xl bg-amber-50 text-amber-600 flex items-center justify-center text-xl">
+                    <i class="fa-solid fa-triangle-exclamation"></i>
+                </div>
             </div>
         </div>
 
-        <!-- TABLA / LISTADO -->
-        <div class="bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden p-6">
-            <h2 class="text-base font-bold text-slate-800 mb-4">Listado de Inventario</h2>
-            <div id="lista-inventario" class="text-center py-10 text-slate-400">
-                Cargando artículos o inventario vacío... Haz clic en "+ Nuevo Artículo" para registrar el primero.
+        <!-- CONTENIDO PRINCIPAL / PESTAÑAS -->
+        <div class="bg-white rounded-2xl shadow-sm border border-slate-200/80 overflow-hidden">
+            <div class="p-6 border-b border-slate-100 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+                <div class="flex items-center space-x-2">
+                    <button class="px-4 py-2 rounded-xl text-sm font-semibold bg-brand-50 text-brand-700">Inventario por Artículo</button>
+                </div>
+            </div>
+
+            <!-- TABLA DE DATOS -->
+            <div class="overflow-x-auto p-6">
+                <div id="contenedor-tabla" class="text-center py-12 text-slate-400">
+                    <i class="fa-solid fa-box-open text-4xl mb-3 text-slate-300"></i>
+                    <p class="text-sm font-medium">Cargando inventario desde Firebase...</p>
+                </div>
             </div>
         </div>
     </main>
 
-    <!-- MODAL NUEVO PRODUCTO -->
-    <div id="modal-producto" class="fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-50 hidden flex items-center justify-center p-4">
-        <div class="bg-white w-full max-w-md rounded-2xl shadow-xl overflow-hidden p-6 space-y-4">
+    <!-- MODAL NUEVO/EDITAR ARTÍCULO -->
+    <div id="modal-articulo" class="fixed inset-0 bg-slate-900/50 backdrop-blur-sm z-50 hidden flex items-center justify-center p-4">
+        <div class="bg-white rounded-2xl shadow-xl max-w-lg w-full overflow-hidden p-6 space-y-4">
             <div class="flex justify-between items-center border-b pb-3">
-                <h3 class="font-bold text-lg text-slate-800">Registrar Nuevo Artículo</h3>
-                <button onclick="cerrarModal()" class="text-slate-400 hover:text-slate-600 font-bold text-xl">&times;</button>
+                <h3 id="modal-titulo" class="font-bold text-lg text-slate-800">Registrar Nuevo Artículo</h3>
+                <button onclick="cerrarModal()" class="text-slate-400 hover:text-slate-600 text-xl font-bold">&times;</button>
             </div>
-            <form id="form-producto" onsubmit="guardarArticulo(event)" class="space-y-3">
+            <form id="form-articulo" onsubmit="guardarFormulario(event)" class="space-y-3">
+                <input type="hidden" id="edit-id">
                 <div>
-                    <label class="text-xs font-semibold text-slate-600">Código / SKU</label>
-                    <input type="text" id="sku" required class="w-full mt-1 px-3 py-2 border rounded-lg text-sm focus:ring-2 focus:ring-blue-500 outline-none">
+                    <label class="text-xs font-semibold text-slate-600">Código de Fábrica / SKU</label>
+                    <input type="text" id="input-sku" required class="w-full mt-1 px-3 py-2 border rounded-xl text-sm outline-none focus:ring-2 focus:ring-brand-500">
                 </div>
                 <div>
                     <label class="text-xs font-semibold text-slate-600">Equipo / Marca</label>
-                    <input type="text" id="equipo" required class="w-full mt-1 px-3 py-2 border rounded-lg text-sm focus:ring-2 focus:ring-blue-500 outline-none">
+                    <input type="text" id="input-equipo" required class="w-full mt-1 px-3 py-2 border rounded-xl text-sm outline-none focus:ring-2 focus:ring-brand-500">
                 </div>
                 <div>
                     <label class="text-xs font-semibold text-slate-600">Categoría y Modelo</label>
-                    <input type="text" id="categoria" required class="w-full mt-1 px-3 py-2 border rounded-lg text-sm focus:ring-2 focus:ring-blue-500 outline-none">
+                    <input type="text" id="input-categoria" required class="w-full mt-1 px-3 py-2 border rounded-xl text-sm outline-none focus:ring-2 focus:ring-brand-500">
                 </div>
                 <div>
-                    <label class="text-xs font-semibold text-slate-600">Cantidad en Stock</label>
-                    <input type="number" id="stock" required min="0" class="w-full mt-1 px-3 py-2 border rounded-lg text-sm focus:ring-2 focus:ring-blue-500 outline-none">
+                    <label class="text-xs font-semibold text-slate-600">Cantidad Inicial / Stock</label>
+                    <input type="number" id="input-stock" required min="0" class="w-full mt-1 px-3 py-2 border rounded-xl text-sm outline-none focus:ring-2 focus:ring-brand-500">
                 </div>
                 <div class="flex justify-end space-x-2 pt-3 border-t">
-                    <button type="button" onclick="cerrarModal()" class="px-4 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 text-sm font-semibold rounded-lg">Cancelar</button>
-                    <button type="submit" class="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white text-sm font-semibold rounded-lg shadow">Guardar Artículo</button>
+                    <button type="button" onclick="cerrarModal()" class="px-4 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 text-sm font-semibold rounded-xl">Cancelar</button>
+                    <button type="submit" class="px-4 py-2 bg-brand-600 hover:bg-brand-500 text-white text-sm font-semibold rounded-xl shadow">Guardar Artículo</button>
                 </div>
             </form>
         </div>
     </div>
 
-    <!-- SCRIPT DE CONTROL DE BOTONES -->
+    <!-- SCRIPT DE FUNCIONALIDAD Y FIREBASE -->
     <script>
-        function abrirModal() {
-            document.getElementById('modal-producto').classList.remove('hidden');
+        function abrirModalNuevo() {
+            document.getElementById('modal-titulo').innerText = "Registrar Nuevo Artículo";
+            document.getElementById('edit-id').value = "";
+            document.getElementById('form-articulo').reset();
+            document.getElementById('modal-articulo').classList.remove('hidden');
         }
 
         function cerrarModal() {
-            document.getElementById('modal-producto').classList.add('hidden');
+            document.getElementById('modal-articulo').classList.add('hidden');
         }
 
-        function guardarArticulo(e) {
+        async function guardarFormulario(e) {
             e.preventDefault();
-            alert("¡Formulario funcionando! Conectando guardado a Firebase...");
-            cerrarModal();
+            const sku = document.getElementById('input-sku').value;
+            const equipo = document.getElementById('input-equipo').value;
+            const categoria = document.getElementById('input-categoria').value;
+            const stock = Number(document.getElementById('input-stock').value);
+            const editId = document.getElementById('edit-id').value;
+
+            try {
+                if (editId) {
+                    // Actualizar
+                    const docRef = window.fsDoc(window.db, "inventario", editId);
+                    await window.fsSetDoc(docRef, { sku, equipo, categoria, stock }, { merge: true });
+                } else {
+                    // Crear nuevo
+                    const colRef = window.fsCollection(window.db, "inventario");
+                    await window.fsAddDoc(colRef, { sku, equipo, categoria, stock, fecha: window.fsServerTimestamp() });
+                }
+                cerrarModal();
+            } catch (error) {
+                console.error("Error al guardar:", error);
+                alert("Hubo un error al guardar en Firebase. Revisa los permisos.");
+            }
+        }
+
+        // Escuchar cambios en tiempo real desde Firestore
+        window.addEventListener('DOMContentLoaded', () => {
+            const { fsCollection, fsOnSnapshot, db } = window;
+            if (db) {
+                const colRef = fsCollection(db, "inventario");
+                fsOnSnapshot(colRef, (snapshot) => {
+                    let totalArticulos = snapshot.size;
+                    let totalUnidades = 0;
+                    let stockBajo = 0;
+                    let html = `<table class="w-full text-left border-collapse">
+                        <thead>
+                            <tr class="border-b text-xs font-semibold text-slate-400 uppercase">
+                                <th class="py-3 px-4">SKU</th>
+                                <th class="py-3 px-4">Equipo / Marca</th>
+                                <th class="py-3 px-4">Categoría</th>
+                                <th class="py-3 px-4">Stock</th>
+                                <th class="py-3 px-4 text-right">Acciones</th>
+                            </tr>
+                        </thead>
+                        <tbody class="divide-y divide-slate-100 text-sm">`;
+
+                    if (snapshot.empty) {
+                        html = `<div class="text-center py-12 text-slate-400"><p>No hay artículos registrados. Haz clic en "+ Nuevo Artículo".</p></div>`;
+                    } else {
+                        snapshot.forEach((docSnap) => {
+                            const data = docSnap.data();
+                            const id = docSnap.id;
+                            totalUnidades += Number(data.stock || 0);
+                            if (Number(data.stock || 0) <= 2) stockBajo++;
+
+                            html += `<tr class="hover:bg-slate-50">
+                                <td class="py-3 px-4 font-medium text-slate-700">${data.sku || ''}</td>
+                                <td class="py-3 px-4">${data.equipo || ''}</td>
+                                <td class="py-3 px-4 text-slate-500">${data.categoria || ''}</td>
+                                <td class="py-3 px-4 font-bold ${data.stock <= 2 ? 'text-amber-600' : 'text-slate-800'}">${data.stock || 0}</td>
+                                <td class="py-3 px-4 text-right space-x-2">
+                                    <button onclick="eliminarArticulo('${id}')" class="text-red-500 hover:text-red-700 text-xs px-2 py-1 bg-red-50 rounded-lg"><i class="fa-solid fa-trash"></i></button>
+                                </td>
+                            </tr>`;
+                        });
+                        html += `</tbody></table>`;
+                    }
+
+                    document.getElementById('contenedor-tabla').innerHTML = html;
+                    document.getElementById('stat-total-articulos').innerText = totalArticulos;
+                    document.getElementById('stat-total-unidades').innerText = totalUnidades;
+                    document.getElementById('stat-stock-bajo').innerText = stockBajo;
+                });
+            }
+        });
+
+        async function eliminarArticulo(id) {
+            if (confirm("¿Estás seguro de eliminar este artículo?")) {
+                try {
+                    await window.fsDeleteDoc(window.fsDoc(window.db, "inventario", id));
+                } catch (error) {
+                    console.error("Error al eliminar:", error);
+                }
+            }
         }
     </script>
 </body>
