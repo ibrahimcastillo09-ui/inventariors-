@@ -41,7 +41,7 @@
     </style>
 
     <!-- FIREBASE SDK MODULAR CON TUS CREDENCIALES EXACTAS -->
-    <script type="module">
+    <script type="main" type="module">
         import { initializeApp } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-app.js";
         import { 
             getFirestore, 
@@ -77,6 +77,32 @@
         window.fsServerTimestamp = serverTimestamp;
         window.fsWriteBatch = writeBatch;
     </script>
+    <!-- Script de Firebase ejecutándose inline correctamente -->
+    <script type="module">
+        import { initializeApp } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-app.js";
+        import { getFirestore, collection, onSnapshot, doc, deleteDoc, addDoc, serverTimestamp, setDoc } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore.js";
+
+        const firebaseConfig = {
+            apiKey: "AIzaSyBkLcazj34IbSkygmFz9yYVgT48nBMN_MM",
+            authDomain: "inventario-rs.firebaseapp.com",
+            projectId: "inventario-rs",
+            storageBucket: "inventario-rs.firebasestorage.app",
+            messagingSenderId: "411948335560",
+            appId: "1:411948335560:web:a4b51ae6f3fc6606d940fd"
+        };
+
+        const app = initializeApp(firebaseConfig);
+        const db = getFirestore(app);
+
+        window.db = db;
+        window.fsCollection = collection;
+        window.fsOnSnapshot = onSnapshot;
+        window.fsDoc = doc;
+        window.fsSetDoc = setDoc;
+        window.fsDeleteDoc = deleteDoc;
+        window.fsAddDoc = addDoc;
+        window.fsServerTimestamp = serverTimestamp;
+    </script>
 </head>
 <body class="bg-slate-100 text-slate-800 font-sans antialiased min-h-screen flex flex-col">
 
@@ -91,7 +117,7 @@
                     </div>
                     <div>
                         <h1 class="font-bold text-base leading-tight tracking-wide">Inventario RS</h1>
-                        <p class="text-xs text-slate-400 font-medium">Control de Almacén Multi-Categoría y Tallas</p>
+                        <p class="text-xs text-slate-400 font-medium">Control de Uniformes y Artículos LVBP</p>
                     </div>
                 </div>
 
@@ -145,11 +171,11 @@
             </div>
         </div>
 
-        <!-- CONTENIDO PRINCIPAL / PESTAÑAS -->
+        <!-- CONTENIDO PRINCIPAL / TABLA -->
         <div class="bg-white rounded-2xl shadow-sm border border-slate-200/80 overflow-hidden">
             <div class="p-6 border-b border-slate-100 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
                 <div class="flex items-center space-x-2">
-                    <button class="px-4 py-2 rounded-xl text-sm font-semibold bg-brand-50 text-brand-700">Inventario por Artículo</button>
+                    <span class="px-4 py-2 rounded-xl text-sm font-semibold bg-brand-50 text-brand-700">Listado General de Almacén</span>
                 </div>
             </div>
 
@@ -163,9 +189,9 @@
         </div>
     </main>
 
-    <!-- MODAL NUEVO/EDITAR ARTÍCULO -->
+    <!-- MODAL NUEVO/EDITAR ARTÍCULO CON TALLAS, GÉNERO Y MODELO (HOME/VISITANTE) -->
     <div id="modal-articulo" class="fixed inset-0 bg-slate-900/50 backdrop-blur-sm z-50 hidden flex items-center justify-center p-4">
-        <div class="bg-white rounded-2xl shadow-xl max-w-lg w-full overflow-hidden p-6 space-y-4">
+        <div class="bg-white rounded-2xl shadow-xl max-w-lg w-full overflow-hidden p-6 space-y-4 max-h-[90vh] overflow-y-auto">
             <div class="flex justify-between items-center border-b pb-3">
                 <h3 id="modal-titulo" class="font-bold text-lg text-slate-800">Registrar Nuevo Artículo</h3>
                 <button onclick="cerrarModal()" class="text-slate-400 hover:text-slate-600 text-xl font-bold">&times;</button>
@@ -173,20 +199,49 @@
             <form id="form-articulo" onsubmit="guardarFormulario(event)" class="space-y-3">
                 <input type="hidden" id="edit-id">
                 <div>
-                    <label class="text-xs font-semibold text-slate-600">Código de Fábrica / SKU</label>
+                    <label class="text-xs font-semibold text-slate-600">Código / SKU</label>
                     <input type="text" id="input-sku" required class="w-full mt-1 px-3 py-2 border rounded-xl text-sm outline-none focus:ring-2 focus:ring-brand-500">
                 </div>
                 <div>
                     <label class="text-xs font-semibold text-slate-600">Equipo / Marca</label>
-                    <input type="text" id="input-equipo" required class="w-full mt-1 px-3 py-2 border rounded-xl text-sm outline-none focus:ring-2 focus:ring-brand-500">
+                    <input type="text" id="input-equipo" required placeholder="Ej: Leones del Caracas, Navegantes del Magallanes..." class="w-full mt-1 px-3 py-2 border rounded-xl text-sm outline-none focus:ring-2 focus:ring-brand-500">
                 </div>
-                <div>
-                    <label class="text-xs font-semibold text-slate-600">Categoría y Modelo</label>
-                    <input type="text" id="input-categoria" required class="w-full mt-1 px-3 py-2 border rounded-xl text-sm outline-none focus:ring-2 focus:ring-brand-500">
+                <div class="grid grid-cols-2 gap-3">
+                    <div>
+                        <label class="text-xs font-semibold text-slate-600">Modelo / Tipo</label>
+                        <select id="input-modelo" class="w-full mt-1 px-3 py-2 border rounded-xl text-sm outline-none focus:ring-2 focus:ring-brand-500 bg-white">
+                            <option value="Home (Local)">Home (Local)</option>
+                            <option value="Visitante">Visitante</option>
+                            <option value="Alternativo">Alternativo</option>
+                            <option value="Entrenamiento">Entrenamiento</option>
+                        </select>
+                    </div>
+                    <div>
+                        <label class="text-xs font-semibold text-slate-600">Género / Sección</label>
+                        <select id="input-genero" class="w-full mt-1 px-3 py-2 border rounded-xl text-sm outline-none focus:ring-2 focus:ring-brand-500 bg-white">
+                            <option value="Caballero">Caballero</option>
+                            <option value="Dama">Dama</option>
+                            <option value="Unisex">Unisex / General</option>
+                            <option value="Niño">Niño</option>
+                        </select>
+                    </div>
                 </div>
-                <div>
-                    <label class="text-xs font-semibold text-slate-600">Cantidad Inicial / Stock</label>
-                    <input type="number" id="input-stock" required min="0" class="w-full mt-1 px-3 py-2 border rounded-xl text-sm outline-none focus:ring-2 focus:ring-brand-500">
+                <div class="grid grid-cols-2 gap-3">
+                    <div>
+                        <label class="text-xs font-semibold text-slate-600">Talla</label>
+                        <select id="input-talla" class="w-full mt-1 px-3 py-2 border rounded-xl text-sm outline-none focus:ring-2 focus:ring-brand-500 bg-white">
+                            <option value="S">S</option>
+                            <option value="M">M</option>
+                            <option value="L">L</option>
+                            <option value="XL">XL</option>
+                            <option value="2XL">2XL</option>
+                            <option value="Única">Única</option>
+                        </select>
+                    </div>
+                    <div>
+                        <label class="text-xs font-semibold text-slate-600">Cantidad / Stock</label>
+                        <input type="number" id="input-stock" required min="0" class="w-full mt-1 px-3 py-2 border rounded-xl text-sm outline-none focus:ring-2 focus:ring-brand-500">
+                    </div>
                 </div>
                 <div class="flex justify-end space-x-2 pt-3 border-t">
                     <button type="button" onclick="cerrarModal()" class="px-4 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 text-sm font-semibold rounded-xl">Cancelar</button>
@@ -196,7 +251,7 @@
         </div>
     </div>
 
-    <!-- SCRIPT DE FUNCIONALIDAD Y FIREBASE -->
+    <!-- SCRIPT DE FUNCIONALIDAD COMPLETA -->
     <script>
         function abrirModalNuevo() {
             document.getElementById('modal-titulo').innerText = "Registrar Nuevo Artículo";
@@ -213,19 +268,19 @@
             e.preventDefault();
             const sku = document.getElementById('input-sku').value;
             const equipo = document.getElementById('input-equipo').value;
-            const categoria = document.getElementById('input-categoria').value;
+            const modelo = document.getElementById('input-modelo').value;
+            const genero = document.getElementById('input-genero').value;
+            const talla = document.getElementById('input-talla').value;
             const stock = Number(document.getElementById('input-stock').value);
             const editId = document.getElementById('edit-id').value;
 
             try {
                 if (editId) {
-                    // Actualizar
                     const docRef = window.fsDoc(window.db, "inventario", editId);
-                    await window.fsSetDoc(docRef, { sku, equipo, categoria, stock }, { merge: true });
+                    await window.fsSetDoc(docRef, { sku, equipo, modelo, genero, talla, stock }, { merge: true });
                 } else {
-                    // Crear nuevo
                     const colRef = window.fsCollection(window.db, "inventario");
-                    await window.fsAddDoc(colRef, { sku, equipo, categoria, stock, fecha: window.fsServerTimestamp() });
+                    await window.fsAddDoc(colRef, { sku, equipo, modelo, genero, talla, stock, fecha: window.fsServerTimestamp() });
                 }
                 cerrarModal();
             } catch (error) {
@@ -234,59 +289,69 @@
             }
         }
 
-        // Escuchar cambios en tiempo real desde Firestore
+        // Cargar y mostrar datos en tiempo real con todos los campos
         window.addEventListener('DOMContentLoaded', () => {
-            const { fsCollection, fsOnSnapshot, db } = window;
-            if (db) {
-                const colRef = fsCollection(db, "inventario");
-                fsOnSnapshot(colRef, (snapshot) => {
-                    let totalArticulos = snapshot.size;
-                    let totalUnidades = 0;
-                    let stockBajo = 0;
-                    let html = `<table class="w-full text-left border-collapse">
-                        <thead>
-                            <tr class="border-b text-xs font-semibold text-slate-400 uppercase">
-                                <th class="py-3 px-4">SKU</th>
-                                <th class="py-3 px-4">Equipo / Marca</th>
-                                <th class="py-3 px-4">Categoría</th>
-                                <th class="py-3 px-4">Stock</th>
-                                <th class="py-3 px-4 text-right">Acciones</th>
-                            </tr>
-                        </thead>
-                        <tbody class="divide-y divide-slate-100 text-sm">`;
+            const checkDb = setInterval(() => {
+                const { fsCollection, fsOnSnapshot, db } = window;
+                if (db) {
+                    clearInterval(checkDb);
+                    const colRef = fsCollection(db, "inventario");
+                    fsOnSnapshot(colRef, (snapshot) => {
+                        let totalArticulos = snapshot.size;
+                        let totalUnidades = 0;
+                        let stockBajo = 0;
+                        let html = `<table class="w-full text-left border-collapse">
+                            <thead>
+                                <tr class="border-b text-xs font-semibold text-slate-400 uppercase">
+                                    <th class="py-3 px-3">SKU</th>
+                                    <th class="py-3 px-3">Equipo / Marca</th>
+                                    <th class="py-3 px-3">Modelo</th>
+                                    <th class="py-3 px-3">Género</th>
+                                    <th class="py-3 px-3">Talla</th>
+                                    <th class="py-3 px-3">Stock</th>
+                                    <th class="py-3 px-3 text-right">Acciones</th>
+                                </tr>
+                            </thead>
+                            <tbody class="divide-y divide-slate-100 text-sm">`;
 
-                    if (snapshot.empty) {
-                        html = `<div class="text-center py-12 text-slate-400"><p>No hay artículos registrados. Haz clic en "+ Nuevo Artículo".</p></div>`;
-                    } else {
-                        snapshot.forEach((docSnap) => {
-                            const data = docSnap.data();
-                            const id = docSnap.id;
-                            totalUnidades += Number(data.stock || 0);
-                            if (Number(data.stock || 0) <= 2) stockBajo++;
+                        if (snapshot.empty) {
+                            html = `<div class="text-center py-12 text-slate-400"><p>No hay artículos registrados. Haz clic en "+ Nuevo Artículo".</p></div>`;
+                        } else {
+                            snapshot.forEach((docSnap) => {
+                                const data = docSnap.data();
+                                const id = docSnap.id;
+                                const stockVal = Number(data.stock || 0);
+                                totalUnidades += stockVal;
+                                if (stockVal <= 2) stockBajo++;
 
-                            html += `<tr class="hover:bg-slate-50">
-                                <td class="py-3 px-4 font-medium text-slate-700">${data.sku || ''}</td>
-                                <td class="py-3 px-4">${data.equipo || ''}</td>
-                                <td class="py-3 px-4 text-slate-500">${data.categoria || ''}</td>
-                                <td class="py-3 px-4 font-bold ${data.stock <= 2 ? 'text-amber-600' : 'text-slate-800'}">${data.stock || 0}</td>
-                                <td class="py-3 px-4 text-right space-x-2">
-                                    <button onclick="eliminarArticulo('${id}')" class="text-red-500 hover:text-red-700 text-xs px-2 py-1 bg-red-50 rounded-lg"><i class="fa-solid fa-trash"></i></button>
-                                </td>
-                            </tr>`;
-                        });
-                        html += `</tbody></table>`;
-                    }
+                                html += `<tr class="hover:bg-slate-50">
+                                    <td class="py-3 px-3 font-medium text-slate-700">${data.sku || ''}</td>
+                                    <td class="py-3 px-3">${data.equipo || ''}</td>
+                                    <td class="py-3 px-3">
+                                        <span class="px-2 py-1 text-xs font-semibold rounded-lg bg-slate-100 text-slate-700">${data.modelo || 'Home'}</span>
+                                    </td>
+                                    <td class="py-3 px-3 text-slate-600">${data.genero || 'Caballero'}</td>
+                                    <td class="py-3 px-3 font-semibold text-slate-700">${data.talla || 'Única'}</td>
+                                    <td class="py-3 px-3 font-bold ${stockVal <= 2 ? 'text-amber-600' : 'text-slate-800'}">${stockVal}</td>
+                                    <td class="py-3 px-3 text-right space-x-2">
+                                        <button onclick="eliminarArticulo('${id}')" class="text-red-500 hover:text-red-700 text-xs px-2.5 py-1.5 bg-red-50 rounded-lg"><i class="fa-solid fa-trash"></i></button>
+                                    </td>
+                                </tr>`;
+                            });
+                            html += `</tbody></table>`;
+                        }
 
-                    document.getElementById('contenedor-tabla').innerHTML = html;
-                    document.getElementById('stat-total-articulos').innerText = totalArticulos;
-                    document.getElementById('stat-total-unidades').innerText = totalUnidades;
-                    document.getElementById('stat-stock-bajo').innerText = stockBajo;
-                });
-            }
+                        document.getElementById('contenedor-tabla').innerHTML = html;
+                        document.getElementById('stat-total-articulos').innerText = totalArticulos;
+                        document.getElementById('stat-total-unidades').innerText = totalUnidades;
+                        document.getElementById('stat-stock-bajo').innerText = stockBajo;
+                    });
+                }
+            }, 200);
         });
 
         async function eliminarArticulo(id) {
-            if (confirm("¿Estás seguro de eliminar este artículo?")) {
+            if (confirm("¿Estás seguro de eliminar este artículo del inventario?")) {
                 try {
                     await window.fsDeleteDoc(window.fsDoc(window.db, "inventario", id));
                 } catch (error) {
